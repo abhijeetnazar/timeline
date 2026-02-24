@@ -14,12 +14,25 @@ function App() {
     return [
       {
         id: '1',
+        type: 'event',
         title: 'Welcome to Timeline Pro',
         description: 'Click me to edit or zoom in/out with your mouse wheel.',
         startDate: new Date().toISOString().split('T')[0],
         category: 'Getting Started',
         color: '#3b82f6',
         position: 'above',
+        scale: 1.2
+      },
+      {
+        id: '2',
+        type: 'period',
+        title: 'Interactive Design',
+        description: 'Try dragging the timeline horizontally.',
+        startDate: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 86400000 * 15).toISOString().split('T')[0],
+        category: 'Features',
+        color: '#10b981',
+        position: 'below',
         scale: 1.0
       }
     ];

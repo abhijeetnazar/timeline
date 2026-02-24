@@ -35,9 +35,12 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     setOffset(targetX - days * scale);
   };
 
+  const [isExporting, setIsExportingLocal] = useState(false);
+
   const exportToImage = async () => {
     if (!containerRef.current || events.length === 0) return;
     
+    setIsExportingLocal(true);
     const sorted = [...events].sort((a,b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
     const firstDate = new Date(sorted[0].startDate);
     const lastDate = new Date(sorted[sorted.length - 1].endDate || sorted[sorted.length - 1].startDate);
@@ -45,40 +48,46 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     const originalScale = scale;
     const originalOffset = offset;
     
-    // Optimized export dimensions
-    const daysSpan = Math.max(1, differenceInDays(lastDate, firstDate));
-    const exportWidth = 3840; // 4K resolution width
-    const exportHeight = 2160; // 4K resolution height
-    const newScale = (exportWidth - 600) / daysSpan;
-    const newOffset = 300 - differenceInDays(firstDate, referenceDate) * newScale;
+    // Improved framing: focus strictly on the event span
+    const exportWidth = 2400; 
+    const exportHeight = 1200;
+    const daysSpan = Math.max(7, differenceInDays(lastDate, firstDate));
+    
+    // Fit to 85% of width for better padding
+    const newScale = (exportWidth * 0.85) / daysSpan;
+    // Offset to start at 7.5% mark
+    const newOffset = (exportWidth * 0.075) - differenceInDays(firstDate, referenceDate) * newScale;
     
     setScale(newScale);
     setOffset(newOffset);
 
-    // Wait for markers and dots to render at new scale
-    await new Promise(r => setTimeout(r, 800));
+    // Wait longer for full high-res re-render
+    await new Promise(r => setTimeout(r, 1200));
 
     try {
       const dataUrl = await toPng(containerRef.current, { 
         width: exportWidth, 
         height: exportHeight,
-        pixelRatio: 3, // Very high quality
-        skipAutoScale: true,
+        pixelRatio: 2.5,
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#020617',
         style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
+          width: `${exportWidth}px`,
+          height: `${exportHeight}px`,
+          transform: 'none',
+          position: 'relative'
         }
       });
       const link = document.createElement('a');
-      link.download = `timeline-4k-${Date.now()}.png`;
+      link.download = `timeline-pro-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      alert('High-res export failed. The timeline might be too large for your browser to process.');
+      alert('High-res export failed.');
       console.error(err);
     } finally {
       setScale(originalScale);
       setOffset(originalOffset);
+      setIsExportingLocal(false);
     }
   };
 
@@ -103,18 +112,20 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isExporting) return;
     setIsDragging(true);
     setStartX(e.clientX - offset);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || isExporting) return;
     setOffset(e.clientX - startX);
   };
 
   const handleMouseUp = () => setIsDragging(false);
 
   const handleWheel = (e: React.WheelEvent) => {
+    if (isExporting) return;
     const delta = e.deltaY;
     const factor = delta > 0 ? 0.8 : 1.2;
     
@@ -133,7 +144,8 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
 
   const markers = useMemo(() => {
     const m = [];
-    const width = containerRef.current?.clientWidth || window.innerWidth;
+    const exportW = 2400;
+    const width = isExporting ? exportW : (containerRef.current?.clientWidth || window.innerWidth);
     
     const startDay = Math.floor(-offset / scale);
     const endDay = Math.floor((width - offset) / scale);
@@ -156,7 +168,7 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
                 startOfYear(startDate);
 
     let count = 0;
-    while (current <= endDate && count < 300) {
+    while (current <= endDate && count < 400) {
       const days = differenceInDays(current, referenceDate);
       const x = days * scale + offset;
       
@@ -186,12 +198,12 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
       count++;
     }
     return m;
-  }, [scale, offset, referenceDate]);
+  }, [scale, offset, referenceDate, isExporting]);
 
   return (
     <div 
       ref={containerRef}
-      className="timeline-canvas"
+      className={`timeline-canvas ${isExporting ? 'exporting' : ''}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -202,7 +214,7 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
         width: '100%', 
         height: '100%', 
         position: 'relative', 
-        overflow: 'hidden',
+        overflow: isExporting ? 'visible' : 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab'
       }}
     >
@@ -211,12 +223,13 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
         backgroundImage: 'linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px)'
       }} />
 
-      {/* Central Horizontal Line */}
+      {/* Central Horizontal Line - Using explicit wide bounds for export safety */}
       <div 
         style={{
           position: 'absolute',
-          left: 0,
-          right: 0,
+          left: -50000,
+          right: -50000,
+          width: '100000px',
           top: '50%',
           height: '4px',
           background: 'var(--text-main)',
@@ -242,16 +255,18 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
           {/* Central Dot */}
           <div 
             style={{
-              width: m.isMajor ? '10px' : '6px',
-              height: m.isMajor ? '10px' : '6px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
-              background: m.isMajor ? 'var(--text-main)' : 'var(--accent-color)',
+              background: 'var(--accent-color)',
+              opacity: 0.8,
+              border: '1px solid var(--bg-color)',
               marginBottom: '20px'
             }}
           />
           <span className="marker-label" style={{ 
             position: 'absolute',
-            top: m.isMajor ? '15px' : '12px',
+            top: '14px',
             transform: 'translateX(-50%)'
           }}>
             {m.label}
@@ -264,28 +279,51 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
         const isAbove = event.position !== 'below';
         const layer = (i % 3);
         const eventScale = event.scale || 1.0;
-        const yBase = isAbove ? (window.innerHeight / 2 - 120 * eventScale - layer * 70 * eventScale) : (window.innerHeight / 2 + 60 + layer * 70 * eventScale);
+        const isPeriod = event.type === 'period';
+        const isPercentage = event.type === 'percentage';
+        
+        const verticalOffset = isAbove 
+          ? (120 * eventScale + layer * 70 * eventScale) 
+          : (60 + layer * 70 * eventScale);
         
         const isSelected = selectedEventId === event.id;
         const width = event.endDate ? (getX(event.endDate) - x) : 0;
         
         return (
           <React.Fragment key={event.id}>
+            {/* Period Background Block */}
+            {isPeriod && event.endDate && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  left: x,
+                  width: Math.max(width, 2),
+                  top: '50%',
+                  height: isAbove ? `calc(${verticalOffset}px + 40px)` : `${verticalOffset}px`,
+                  transform: isAbove ? 'translateY(-100%)' : 'translateY(0)',
+                  background: event.color,
+                  opacity: 0.05,
+                  zIndex: 0,
+                  pointerEvents: 'none'
+                }}
+              />
+            )}
+
             {/* Connector Line */}
             <div 
               style={{
                 position: 'absolute',
                 left: x + 4,
-                top: isAbove ? yBase + 40 * eventScale : '50%',
+                top: isAbove ? `calc(50% - ${verticalOffset}px + ${40 * eventScale}px)` : '50%',
                 width: '1px',
-                height: isAbove ? `calc(50% - ${yBase + 40 * eventScale}px)` : `${yBase - window.innerHeight / 2}px`,
+                height: isAbove ? `calc(${verticalOffset}px - ${40 * eventScale}px)` : `${verticalOffset}px`,
                 background: event.color,
                 opacity: 0.4,
                 zIndex: 2
               }}
             />
 
-            {event.endDate && (
+            {(event.endDate || isPeriod) && (
               <div 
                 className="event-range-bar"
                 style={{
@@ -296,7 +334,8 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
                   background: event.color,
                   boxShadow: isSelected ? `0 0 12px ${event.color}` : 'none',
                   zIndex: 3,
-                  opacity: 0.4
+                  opacity: isPeriod ? 0.8 : 0.4,
+                  height: isPeriod ? '8px' : '4px'
                 }}
               />
             )}
@@ -304,12 +343,13 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
               className={`event-card ${isSelected ? 'selected' : ''}`}
               style={{ 
                 left: x, 
-                top: yBase,
+                top: isAbove ? `calc(50% - ${verticalOffset}px)` : `calc(50% + ${verticalOffset}px)`,
                 borderLeftColor: event.color,
                 zIndex: isSelected ? 100 : 20,
                 width: `${200 * eventScale}px`,
                 transform: `scale(${eventScale})`,
-                transformOrigin: isAbove ? 'bottom left' : 'top left'
+                transformOrigin: isAbove ? 'bottom left' : 'top left',
+                position: 'absolute'
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -318,7 +358,20 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
             >
               <div className="event-dot" style={{ background: event.color }} />
               <div className="event-content">
-                {settings.showEventName && <div className="event-title">{event.title}</div>}
+                {settings.showEventName && <div className="event-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>{event.title}</div>}
+                
+                {isPercentage && (
+                  <div style={{ marginTop: '6px', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px' }}>
+                      <span>Progress</span>
+                      <span>{event.value}%</span>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(0,0,0,0.2)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${event.value}%`, height: '100%', background: event.color }} />
+                    </div>
+                  </div>
+                )}
+
                 {settings.showEventDate && (
                   <div className="event-date">
                     {format(new Date(event.startDate), 'MMM d, yyyy')}
@@ -330,11 +383,13 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
         );
       })}
 
-      <div className="zoom-controls">
-        <button className="btn-fab" onClick={() => setScale(s => s * 1.5)}>+</button>
-        <button className="btn-fab" onClick={() => setScale(s => s * 0.7)}>-</button>
-        <button className="btn-fab" onClick={() => centerOnDate(new Date().toISOString())}>🎯</button>
-      </div>
+      {!isExporting && (
+        <div className="zoom-controls">
+          <button className="btn-fab" onClick={() => setScale(s => s * 1.5)}>+</button>
+          <button className="btn-fab" onClick={() => setScale(s => s * 0.7)}>-</button>
+          <button className="btn-fab" onClick={() => centerOnDate(new Date().toISOString())}>🎯</button>
+        </div>
+      )}
     </div>
   );
 });

@@ -1,5 +1,6 @@
 export interface TimelineEvent {
   id: string;
+  type: 'event' | 'period' | 'percentage';
   title: string;
   description: string;
   startDate: string;
@@ -8,7 +9,8 @@ export interface TimelineEvent {
   imageUrl?: string;
   color: string;
   position: 'above' | 'below';
-  scale: number; // 1.0 is default
+  scale: number;
+  value?: number; // For percentage type
 }
 
 export interface TimelineData {

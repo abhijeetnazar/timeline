@@ -11,6 +11,7 @@ interface Props {
 
 export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }) => {
   const [formData, setFormData] = useState<Partial<TimelineEvent>>({
+    type: 'event',
     title: '',
     description: '',
     startDate: new Date().toISOString().split('T')[0],
@@ -18,15 +19,18 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
     color: '#3b82f6',
     imageUrl: '',
     position: 'above',
-    scale: 1.0
+    scale: 1.0,
+    value: 50
   });
 
   useEffect(() => {
     if (event) {
       setFormData({
         ...event,
+        type: event.type || 'event',
         position: event.position || 'above',
-        scale: event.scale || 1.0
+        scale: event.scale || 1.0,
+        value: event.value || 50
       });
     }
   }, [event]);
@@ -35,6 +39,7 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
     e.preventDefault();
     onSave({
       ...formData as TimelineEvent,
+      type: formData.type || 'event',
       position: formData.position || 'above',
       scale: formData.scale || 1.0,
       id: event?.id || generateId()
@@ -45,19 +50,50 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <h2 style={{ marginBottom: '1.5rem', marginTop: 0, color: 'var(--text-main)' }}>
-          {event ? 'Edit Event' : 'New Event'}
+          {event ? 'Edit Element' : 'New Element'}
         </h2>
         
         <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Element Type</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['event', 'period', 'percentage'].map(t => (
+                <button 
+                  key={t}
+                  type="button"
+                  className={`btn ${formData.type === t ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, fontSize: '0.75rem', padding: '6px', textTransform: 'capitalize' }}
+                  onClick={() => setFormData({ ...formData, type: t as any })}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="form-group">
             <label>Title</label>
             <input 
               required 
               value={formData.title} 
               onChange={e => setFormData({ ...formData, title: e.target.value })} 
-              placeholder="Event Title"
+              placeholder="Title"
             />
           </div>
+
+          {formData.type === 'percentage' && (
+            <div className="form-group">
+              <label>Percentage Value ({formData.value}%)</label>
+              <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                value={formData.value || 0} 
+                onChange={e => setFormData({ ...formData, value: parseInt(e.target.value) })}
+                style={{ width: '100%', accentColor: 'var(--accent-color)' }}
+              />
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
