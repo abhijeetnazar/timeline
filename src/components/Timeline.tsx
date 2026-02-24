@@ -21,6 +21,7 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
+  const [isExporting, setIsExportingLocal] = useState(false);
 
   const referenceDate = useMemo(() => new Date(1970, 0, 1), []);
 
@@ -35,8 +36,6 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     setOffset(targetX - days * scale);
   };
 
-  const [isExporting, setIsExportingLocal] = useState(false);
-
   const exportToImage = async () => {
     if (!containerRef.current || events.length === 0) return;
     
@@ -48,27 +47,23 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     const originalScale = scale;
     const originalOffset = offset;
     
-    // Improved framing: focus strictly on the event span
     const exportWidth = 2400; 
     const exportHeight = 1200;
     const daysSpan = Math.max(7, differenceInDays(lastDate, firstDate));
     
-    // Fit to 85% of width for better padding
-    const newScale = (exportWidth * 0.85) / daysSpan;
-    // Offset to start at 7.5% mark
-    const newOffset = (exportWidth * 0.075) - differenceInDays(firstDate, referenceDate) * newScale;
+    const newScale = (exportWidth * 0.8) / daysSpan;
+    const newOffset = (exportWidth * 0.1) - differenceInDays(firstDate, referenceDate) * newScale;
     
     setScale(newScale);
     setOffset(newOffset);
 
-    // Wait longer for full high-res re-render
-    await new Promise(r => setTimeout(r, 1200));
+    await new Promise(r => setTimeout(r, 1000));
 
     try {
       const dataUrl = await toPng(containerRef.current, { 
         width: exportWidth, 
         height: exportHeight,
-        pixelRatio: 2.5,
+        pixelRatio: 2,
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#020617',
         style: {
           width: `${exportWidth}px`,
@@ -82,7 +77,7 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      alert('High-res export failed.');
+      alert('Export failed.');
       console.error(err);
     } finally {
       setScale(originalScale);
@@ -96,7 +91,6 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     exportToImage
   }));
 
-  // Center on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       centerOnDate(new Date().toISOString());
@@ -218,56 +212,59 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
         cursor: isDragging ? 'grabbing' : 'grab'
       }}
     >
-      <div className="grid-overlay" style={{ 
-        backgroundSize: `${Math.max(20, scale * 30)}px 100%`,
-        backgroundImage: 'linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px)'
-      }} />
-
-      {/* Central Horizontal Line - Using explicit wide bounds for export safety */}
+      {/* Central Axis Line */}
       <div 
         style={{
           position: 'absolute',
-          left: -50000,
-          right: -50000,
-          width: '100000px',
+          left: -100000,
+          width: '200000px',
           top: '50%',
           height: '4px',
-          background: 'var(--text-main)',
-          opacity: 0.15,
+          background: 'rgba(255, 255, 255, 0.4)',
           zIndex: 1,
           transform: 'translateY(-50%)'
         }}
       />
 
+      {/* Current Date Marker */}
+      <div className="current-date-marker" style={{ left: getX(new Date().toISOString()) }} />
+
+      {/* Markers */}
       {markers.map((m, i) => (
         <div 
           key={i}
-          className={`time-marker ${m.isMajor ? 'major' : ''}`}
           style={{ 
+            position: 'absolute',
             left: m.x, 
             zIndex: 5,
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            height: 'auto',
-            border: 'none'
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
           }}
         >
-          {/* Central Dot */}
-          <div 
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: 'var(--accent-color)',
-              opacity: 0.8,
-              border: '1px solid var(--bg-color)',
-              marginBottom: '20px'
-            }}
-          />
-          <span className="marker-label" style={{ 
+          {m.isMajor ? (
+            <div 
+              style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: '#ffffff',
+                marginBottom: '30px'
+              }}
+            />
+          ) : (
+            <div className="axis-tick" style={{ top: '50%', transform: 'translateY(-50%)', marginBottom: '30px' }} />
+          )}
+          <span style={{ 
             position: 'absolute',
-            top: '14px',
-            transform: 'translateX(-50%)'
+            top: '18px',
+            fontSize: m.isMajor ? '14px' : '11px',
+            fontWeight: m.isMajor ? '800' : '600',
+            color: '#ffffff',
+            opacity: m.isMajor ? 1 : 0.6,
+            whiteSpace: 'nowrap'
           }}>
             {m.label}
           </span>
@@ -277,105 +274,96 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
       {events.map((event, i) => {
         const x = getX(event.startDate);
         const isAbove = event.position !== 'below';
-        const layer = (i % 3);
+        const layer = (i % 4);
         const eventScale = event.scale || 1.0;
-        const isPeriod = event.type === 'period';
         const isPercentage = event.type === 'percentage';
+        const isEvent = event.type === 'event' || !event.type;
         
+        // Base distance from center
         const verticalOffset = isAbove 
-          ? (120 * eventScale + layer * 70 * eventScale) 
-          : (60 + layer * 70 * eventScale);
+          ? (70 + layer * 50) * eventScale 
+          : (40 + layer * 50) * eventScale;
         
         const isSelected = selectedEventId === event.id;
-        const width = event.endDate ? (getX(event.endDate) - x) : 0;
-        
-        return (
-          <React.Fragment key={event.id}>
-            {/* Period Background Block */}
-            {isPeriod && event.endDate && (
+        const width = event.endDate ? (getX(event.endDate) - x) : 50;
+
+        if (isEvent) {
+          return (
+            <React.Fragment key={event.id}>
               <div 
+                className="connector-dashed"
                 style={{
-                  position: 'absolute',
                   left: x,
-                  width: Math.max(width, 2),
-                  top: '50%',
-                  height: isAbove ? `calc(${verticalOffset}px + 40px)` : `${verticalOffset}px`,
-                  transform: isAbove ? 'translateY(-100%)' : 'translateY(0)',
-                  background: event.color,
-                  opacity: 0.05,
-                  zIndex: 0,
-                  pointerEvents: 'none'
+                  top: isAbove ? `calc(50% - ${verticalOffset}px)` : '50%',
+                  height: `${verticalOffset}px`,
+                  borderColor: event.color
                 }}
               />
-            )}
+              <div 
+                className={`event-bubble ${isAbove ? 'above' : 'below'} ${isSelected ? 'selected' : ''}`}
+                style={{ 
+                  left: x, 
+                  top: isAbove ? `calc(50% - ${verticalOffset}px - 36px)` : `calc(50% + ${verticalOffset}px)`,
+                  background: event.color,
+                  color: event.color, // For the CSS triangle inheritance
+                  transform: `translateX(-50%) scale(${eventScale})`,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick(event);
+                }}
+              >
+                <span style={{ color: '#ffffff' }}>
+                  {settings.showEventName ? event.title : 'Event'}
+                </span>
+              </div>
+            </React.Fragment>
+          );
+        }
 
-            {/* Connector Line */}
+        // Period or Percentage
+        return (
+          <React.Fragment key={event.id}>
             <div 
               style={{
                 position: 'absolute',
-                left: x + 4,
-                top: isAbove ? `calc(50% - ${verticalOffset}px + ${40 * eventScale}px)` : '50%',
-                width: '1px',
-                height: isAbove ? `calc(${verticalOffset}px - ${40 * eventScale}px)` : `${verticalOffset}px`,
-                background: event.color,
-                opacity: 0.4,
-                zIndex: 2
-              }}
-            />
-
-            {(event.endDate || isPeriod) && (
-              <div 
-                className="event-range-bar"
-                style={{
-                  left: x,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: Math.max(width, 4),
-                  background: event.color,
-                  boxShadow: isSelected ? `0 0 12px ${event.color}` : 'none',
-                  zIndex: 3,
-                  opacity: isPeriod ? 0.8 : 0.4,
-                  height: isPeriod ? '8px' : '4px'
-                }}
-              />
-            )}
-            <div 
-              className={`event-card ${isSelected ? 'selected' : ''}`}
-              style={{ 
-                left: x, 
+                left: x,
                 top: isAbove ? `calc(50% - ${verticalOffset}px)` : `calc(50% + ${verticalOffset}px)`,
-                borderLeftColor: event.color,
                 zIndex: isSelected ? 100 : 20,
-                width: `${200 * eventScale}px`,
                 transform: `scale(${eventScale})`,
-                transformOrigin: isAbove ? 'bottom left' : 'top left',
-                position: 'absolute'
+                transformOrigin: 'left center'
               }}
               onClick={(e) => {
                 e.stopPropagation();
                 onEventClick(event);
               }}
             >
-              <div className="event-dot" style={{ background: event.color }} />
-              <div className="event-content">
-                {settings.showEventName && <div className="event-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>{event.title}</div>}
-                
+              <div 
+                className="bar-label" 
+                style={{ 
+                  color: event.color, 
+                  top: isAbove ? '-22px' : '22px' 
+                }}
+              >
+                {isPercentage ? `${event.value}%, ` : ''}{settings.showEventName ? event.title : ''}
+              </div>
+              
+              <div 
+                className={`thick-bar ${isSelected ? 'selected' : ''}`}
+                style={{
+                  width: Math.max(width, 20),
+                  background: isPercentage ? `${event.color}44` : event.color,
+                }}
+              >
                 {isPercentage && (
-                  <div style={{ marginTop: '6px', marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px' }}>
-                      <span>Progress</span>
-                      <span>{event.value}%</span>
-                    </div>
-                    <div style={{ height: '4px', background: 'rgba(0,0,0,0.2)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${event.value}%`, height: '100%', background: event.color }} />
-                    </div>
-                  </div>
-                )}
-
-                {settings.showEventDate && (
-                  <div className="event-date">
-                    {format(new Date(event.startDate), 'MMM d, yyyy')}
-                  </div>
+                  <div 
+                    style={{ 
+                      width: `${event.value}%`, 
+                      height: '100%', 
+                      background: event.color, 
+                      borderRadius: 'inherit' 
+                    }} 
+                  />
                 )}
               </div>
             </div>
@@ -393,6 +381,3 @@ export const Timeline = forwardRef<TimelineRef, Props>(({ events, onEventClick, 
     </div>
   );
 });
-
-
-
