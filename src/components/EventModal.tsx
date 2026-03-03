@@ -52,13 +52,13 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
         <h2 style={{ marginBottom: '1.5rem', marginTop: 0, color: 'var(--text-main)' }}>
           {event ? 'Edit Element' : 'New Element'}
         </h2>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Element Type</label>
             <div style={{ display: 'flex', gap: '8px' }}>
               {['event', 'period', 'percentage'].map(t => (
-                <button 
+                <button
                   key={t}
                   type="button"
                   className={`btn ${formData.type === t ? 'btn-primary' : 'btn-secondary'}`}
@@ -73,10 +73,10 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
 
           <div className="form-group">
             <label>Title</label>
-            <input 
-              required 
-              value={formData.title} 
-              onChange={e => setFormData({ ...formData, title: e.target.value })} 
+            <input
+              required
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
               placeholder="Title"
             />
           </div>
@@ -84,11 +84,11 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
           {formData.type === 'percentage' && (
             <div className="form-group">
               <label>Percentage Value ({formData.value}%)</label>
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={formData.value || 0} 
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={formData.value || 0}
                 onChange={e => setFormData({ ...formData, value: parseInt(e.target.value) })}
                 style={{ width: '100%', accentColor: 'var(--accent-color)' }}
               />
@@ -98,19 +98,19 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label>Start Date</label>
-              <input 
-                type="date" 
-                required 
-                value={formData.startDate} 
-                onChange={e => setFormData({ ...formData, startDate: e.target.value })} 
+              <input
+                type="date"
+                required
+                value={formData.startDate}
+                onChange={e => setFormData({ ...formData, startDate: e.target.value })}
               />
             </div>
             <div className="form-group">
               <label>End Date (Optional)</label>
-              <input 
-                type="date" 
-                value={formData.endDate || ''} 
-                onChange={e => setFormData({ ...formData, endDate: e.target.value || undefined })} 
+              <input
+                type="date"
+                value={formData.endDate || ''}
+                onChange={e => setFormData({ ...formData, endDate: e.target.value || undefined })}
               />
             </div>
           </div>
@@ -119,7 +119,7 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
             <div className="form-group">
               <label>Position</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
+                <button
                   type="button"
                   className={`btn ${formData.position === 'above' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, fontSize: '0.8rem', padding: '6px' }}
@@ -127,7 +127,7 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
                 >
                   Above
                 </button>
-                <button 
+                <button
                   type="button"
                   className={`btn ${formData.position === 'below' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, fontSize: '0.8rem', padding: '6px' }}
@@ -139,12 +139,12 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
             </div>
             <div className="form-group">
               <label>Event Size ({formData.scale?.toFixed(1)}x)</label>
-              <input 
-                type="range" 
-                min="0.5" 
-                max="2.0" 
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
                 step="0.1"
-                value={formData.scale || 1.0} 
+                value={formData.scale || 1.0}
                 onChange={e => setFormData({ ...formData, scale: parseFloat(e.target.value) })}
                 style={{ width: '100%', accentColor: 'var(--accent-color)' }}
               />
@@ -154,10 +154,10 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
           <div className="form-group">
             <label>Theme Color</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input 
-                type="color" 
-                value={formData.color} 
-                onChange={e => setFormData({ ...formData, color: e.target.value })} 
+              <input
+                type="color"
+                value={formData.color}
+                onChange={e => setFormData({ ...formData, color: e.target.value })}
                 style={{ width: '40px', height: '32px', padding: 0, border: 'none', background: 'none' }}
               />
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{formData.color}</div>
@@ -166,36 +166,28 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
 
           <div className="form-group">
             <label>Description</label>
-            <textarea 
-              rows={2} 
-              value={formData.description} 
-              onChange={e => setFormData({ ...formData, description: e.target.value })} 
+            <textarea
+              rows={2}
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
               placeholder="Tell a story..."
             />
           </div>
 
           <div className="form-group">
             <label>Category</label>
-            <input 
-              value={formData.category} 
-              onChange={e => setFormData({ ...formData, category: e.target.value })} 
+            <input
+              value={formData.category}
+              onChange={e => setFormData({ ...formData, category: e.target.value })}
             />
           </div>
 
-          <div className="form-group">
-            <label>Color</label>
-            <input 
-              type="color" 
-              value={formData.color} 
-              onChange={e => setFormData({ ...formData, color: e.target.value })} 
-            />
-          </div>
 
           <div className="form-group">
             <label>Image URL</label>
-            <input 
-              value={formData.imageUrl} 
-              onChange={e => setFormData({ ...formData, imageUrl: e.target.value })} 
+            <input
+              value={formData.imageUrl}
+              onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
               placeholder="https://..."
             />
           </div>
@@ -204,18 +196,18 @@ export const EventModal: React.FC<Props> = ({ event, onSave, onClose, onDelete }
             <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
               Save Event
             </button>
-            
+
             {event && onDelete && (
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 style={{ color: '#ef4444' }}
                 onClick={() => onDelete(event.id)}
               >
                 Delete
               </button>
             )}
-            
+
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
